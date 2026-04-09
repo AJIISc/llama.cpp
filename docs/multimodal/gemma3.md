@@ -1,8 +1,10 @@
-# Gemma 3 vision
+# Gemma 3 / Gemma 3n vision
 
 > [!IMPORTANT]
 >
 > This is very experimental, only used for demo purpose.
+>
+> Gemma 3n variants are also supported by the `llama.cpp` multimodal code path. The same `--mmproj` workflow generally applies, though model names and available checkpoints may differ.
 
 ## Quick started
 

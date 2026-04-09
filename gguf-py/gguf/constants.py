@@ -418,6 +418,7 @@ class MODEL_ARCH(IntEnum):
     GEMMA            = auto()
     GEMMA2           = auto()
     GEMMA3           = auto()
+    GEMMA4           = auto()
     GEMMA3N          = auto()
     GEMMA_EMBEDDING  = auto()
     STARCODER2       = auto()
@@ -881,6 +882,7 @@ MODEL_ARCH_NAMES: dict[MODEL_ARCH, str] = {
     MODEL_ARCH.GEMMA:            "gemma",
     MODEL_ARCH.GEMMA2:           "gemma2",
     MODEL_ARCH.GEMMA3:           "gemma3",
+    MODEL_ARCH.GEMMA4:           "gemma4",
     MODEL_ARCH.GEMMA3N:          "gemma3n",
     MODEL_ARCH.GEMMA_EMBEDDING:  "gemma-embedding",
     MODEL_ARCH.STARCODER2:       "starcoder2",

@@ -244,6 +244,8 @@ struct llm_build_gemma3 : public llm_graph_context {
     llm_build_gemma3(const llama_model & model, const llm_graph_params & params);
 };
 
+using llm_build_gemma4 = llm_build_gemma3<false>;
+
 struct llm_build_gemma3n_iswa : public llm_graph_context {
     const llama_model & model;
 

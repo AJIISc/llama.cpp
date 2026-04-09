@@ -8482,6 +8482,11 @@ ggml_cgraph * llama_model::build_graph(const llm_graph_params & params) const {
                     llm = std::make_unique<llm_build_gemma3<false>>(*this, params);
                 }
             } break;
+        case LLM_ARCH_GEMMA4:
+            {
+                // Placeholder runtime builder; refine with Gemma4-specific graph details.
+                llm = std::make_unique<llm_build_gemma4>(*this, params);
+            } break;
         case LLM_ARCH_GEMMA3N:
             {
                 llm = std::make_unique<llm_build_gemma3n_iswa>(*this, params);
@@ -9005,6 +9010,7 @@ llama_rope_type llama_model_rope_type(const llama_model * model) {
         case LLM_ARCH_GEMMA:
         case LLM_ARCH_GEMMA2:
         case LLM_ARCH_GEMMA3:
+        case LLM_ARCH_GEMMA4:
         case LLM_ARCH_GEMMA3N:
         case LLM_ARCH_GEMMA_EMBEDDING:
         case LLM_ARCH_STARCODER2:
