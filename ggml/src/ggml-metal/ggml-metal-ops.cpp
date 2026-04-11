@@ -2110,6 +2110,13 @@ int ggml_metal_op_mul_mat(ggml_metal_op_t ctx, int idx) {
         };
 
         auto pipeline = ggml_metal_library_get_pipeline_mul_mv_ext(lib, op->src[0]->type, op->src[1]->type, nsg, nxpsg, r1ptg);
+        if (!pipeline.pipeline) {
+            GGML_LOG_ERROR("%s: mul_mv_ext pipeline unavailable, falling back to mul_mv\n", __func__);
+            pipeline = ggml_metal_library_get_pipeline_mul_mv(lib, op);
+            if (!pipeline.pipeline) {
+                GGML_ABORT("ggml_metal_op_mul_mat: no valid mul_mv pipeline available");
+            }
+        }
 
         ggml_metal_kargs_mul_mv_ext args = {
             /*.ne00  =*/ ne00,
@@ -2157,6 +2164,13 @@ int ggml_metal_op_mul_mat(ggml_metal_op_t ctx, int idx) {
         //}
 
         auto pipeline = ggml_metal_library_get_pipeline_mul_mm(lib, op);
+        if (!pipeline.pipeline) {
+            GGML_LOG_ERROR("%s: mul_mm pipeline unavailable, falling back to mul_mv\n", __func__);
+            pipeline = ggml_metal_library_get_pipeline_mul_mv(lib, op);
+            if (!pipeline.pipeline) {
+                GGML_ABORT("ggml_metal_op_mul_mat: no valid mul_mv pipeline available");
+            }
+        }
 
         ggml_metal_kargs_mul_mm args = {
             /*.ne00 =*/ ne00,

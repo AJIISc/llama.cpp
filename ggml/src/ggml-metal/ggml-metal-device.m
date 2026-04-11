@@ -484,6 +484,11 @@ void ggml_metal_encoder_debug_group_pop (ggml_metal_encoder_t encoder) {
 }
 
 void ggml_metal_encoder_set_pipeline(ggml_metal_encoder_t encoder, struct ggml_metal_pipeline_with_params pipeline) {
+    if (!pipeline.pipeline || !pipeline.pipeline->obj) {
+        GGML_LOG_ERROR("%s: invalid pipeline state\n", __func__);
+        GGML_ABORT("ggml_metal_encoder_set_pipeline: invalid pipeline state");
+    }
+
     [encoder->obj setComputePipelineState:pipeline.pipeline->obj];
 }
 
@@ -894,6 +899,9 @@ ggml_metal_library_t ggml_metal_device_get_library(ggml_metal_device_t dev) {
     return dev->library;
 }
 
+static bool ggml_metal_device_supports_mul_mat(ggml_metal_device_t dev, const struct ggml_tensor * op);
+static bool ggml_metal_device_supports_mul_mv_type_combo(enum ggml_type tsrc0, enum ggml_type tsrc1);
+
 void ggml_metal_device_rsets_add(ggml_metal_device_t dev, ggml_metal_rset_t rset) {
     if (rset == nil) {
         return;
@@ -1169,9 +1177,10 @@ bool ggml_metal_device_supports_op(ggml_metal_device_t dev, const struct ggml_te
         case GGML_OP_GATED_DELTA_NET:
             return has_simdgroup_reduction && op->src[2]->ne[0] % 32 == 0;
         case GGML_OP_SOLVE_TRI:
+            return has_simdgroup_reduction && op->src[0]->type != GGML_TYPE_NVFP4;
         case GGML_OP_MUL_MAT:
         case GGML_OP_MUL_MAT_ID:
-            return has_simdgroup_reduction && op->src[0]->type != GGML_TYPE_NVFP4;
+            return ggml_metal_device_supports_mul_mat(dev, op);
         case GGML_OP_SET:
         case GGML_OP_CPY:
         case GGML_OP_DUP:
@@ -1262,7 +1271,116 @@ bool ggml_metal_device_supports_op(ggml_metal_device_t dev, const struct ggml_te
             return false;
     }
 }
+static bool ggml_metal_device_supports_mul_mv_type_combo(enum ggml_type tsrc0, enum ggml_type tsrc1) {
+    switch (tsrc0) {
+        case GGML_TYPE_F32:
+            return tsrc1 == GGML_TYPE_F32;
+        case GGML_TYPE_F16:
+            return tsrc1 == GGML_TYPE_F32 || tsrc1 == GGML_TYPE_F16;
+        case GGML_TYPE_BF16:
+            return tsrc1 == GGML_TYPE_F32 || tsrc1 == GGML_TYPE_BF16;
+        case GGML_TYPE_Q1_0:
+        case GGML_TYPE_Q4_0:
+        case GGML_TYPE_Q4_1:
+        case GGML_TYPE_Q5_0:
+        case GGML_TYPE_Q5_1:
+        case GGML_TYPE_Q8_0:
+        case GGML_TYPE_MXFP4:
+        case GGML_TYPE_Q2_K:
+        case GGML_TYPE_Q3_K:
+        case GGML_TYPE_Q4_K:
+        case GGML_TYPE_Q5_K:
+        case GGML_TYPE_Q6_K:
+        case GGML_TYPE_IQ2_XXS:
+        case GGML_TYPE_IQ2_XS:
+        case GGML_TYPE_IQ3_XXS:
+        case GGML_TYPE_IQ3_S:
+        case GGML_TYPE_IQ2_S:
+        case GGML_TYPE_IQ1_S:
+        case GGML_TYPE_IQ1_M:
+        case GGML_TYPE_IQ4_NL:
+        case GGML_TYPE_IQ4_XS:
+            return tsrc1 == GGML_TYPE_F32;
+        default:
+            return false;
+    }
+}
 
+static bool ggml_metal_device_supports_mul_mat(ggml_metal_device_t dev, const struct ggml_tensor * op) {
+    const struct ggml_metal_device_props * props_dev = ggml_metal_device_get_props(dev);
+    const bool has_simdgroup_mm        = props_dev->has_simdgroup_mm;
+    const bool has_simdgroup_reduction = props_dev->has_simdgroup_reduction;
+
+    if (!has_simdgroup_reduction || op->src[0]->type == GGML_TYPE_NVFP4) {
+        return false;
+    }
+
+    const int32_t ne00 = op->src[0]->ne[0];
+    const int32_t ne01 = op->src[0]->ne[1];
+    const int32_t ne02 = op->src[0]->ne[2];
+    const int32_t ne03 = op->src[0]->ne[3];
+    const int32_t ne10 = op->src[1]->ne[0];
+    const int32_t ne11 = op->src[1]->ne[1];
+    const int32_t ne12 = op->src[1]->ne[2];
+    const int32_t ne13 = op->src[1]->ne[3];
+
+    if (!ggml_metal_device_supports_mul_mv_type_combo(op->src[0]->type, op->src[1]->type)) {
+        return false;
+    }
+
+    ggml_metal_library_t lib = ggml_metal_device_get_library(dev);
+
+    // first try matrix-matrix kernel when available
+    const int ne11_mm_min = 8;
+    if (!ggml_is_transposed(op->src[0]) &&
+        !ggml_is_transposed(op->src[1]) &&
+        has_simdgroup_mm && ne00 >= 64 && ne11 > ne11_mm_min) {
+        struct ggml_metal_pipeline_with_params pipeline = ggml_metal_library_get_pipeline_mul_mm(lib, op);
+        if (pipeline.pipeline) {
+            return true;
+        }
+    }
+
+    // next consider the extended mat-vec kernels for small batches
+    if (!ggml_is_transposed(op->src[0]) &&
+        !ggml_is_transposed(op->src[1]) &&
+        op->src[1]->type == GGML_TYPE_F32 &&
+        ne12 == 1 && ne13 == 1 &&
+        ne11 % ne01 == 0 &&
+        ne01 % 64 == 0 &&
+        (ne11 == 2 || ne11 == 3 || ne11 == 4 || ne11 == 5 || ne11 == 6 || ne11 == 7 || ne11 == 8) &&
+        (ne10 == 1 || ne10 == 2 || ne10 == 4 || ne10 == 8)) {
+        const int nsg = 2;
+        int16_t nxpsg = 0;
+        if (ne00 % 256 == 0 && ne11 < 3) {
+            nxpsg = 16;
+        } else if (ne00 % 128 == 0) {
+            nxpsg = 8;
+        } else {
+            nxpsg = 4;
+        }
+
+        int16_t r1ptg = 4;
+        switch (ne11) {
+            case 2: r1ptg = 2; break;
+            case 3:
+            case 6: r1ptg = 3; break;
+            case 4:
+            case 7:
+            case 8: r1ptg = 4; break;
+            case 5: r1ptg = 5; break;
+            default: return false;
+        }
+
+        struct ggml_metal_pipeline_with_params pipeline = ggml_metal_library_get_pipeline_mul_mv_ext(lib, op->src[0]->type, op->src[1]->type, nsg, nxpsg, r1ptg);
+        if (pipeline.pipeline) {
+            return true;
+        }
+    }
+
+    struct ggml_metal_pipeline_with_params pipeline = ggml_metal_library_get_pipeline_mul_mv(lib, op);
+    return pipeline.pipeline != nil;
+}
 const struct ggml_metal_device_props * ggml_metal_device_get_props(ggml_metal_device_t dev) {
     return &dev->props;
 }
