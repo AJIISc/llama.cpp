@@ -27,6 +27,9 @@
 #include <sys/sysctl.h>
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 // backend buffer type
 
@@ -555,6 +558,10 @@ void ggml_backend_event_wait(ggml_backend_t backend, ggml_backend_event_t event)
 
     backend->iface.event_wait(backend, event);
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 static void ggml_backend_graph_optimize(ggml_backend_t backend, struct ggml_cgraph * cgraph) {
     GGML_ASSERT(backend);

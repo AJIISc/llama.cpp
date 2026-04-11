@@ -72,6 +72,7 @@ let llamaSources: [String] = [
     "src/models/gemma-embedding.cpp",
     "src/models/gemma.cpp",
     "src/models/gemma2-iswa.cpp",
+    "src/models/gemma4-iswa.cpp",
     "src/models/gemma3.cpp",
     "src/models/gemma3n-iswa.cpp",
     "src/models/glm4-moe.cpp",
@@ -154,6 +155,7 @@ let llamaSources: [String] = [
     "ggml/src/ggml.cpp",
     "ggml/src/ggml-alloc.c",
     "ggml/src/ggml-backend.cpp",
+    "ggml/src/ggml-backend-meta.cpp",
     "ggml/src/ggml-backend-reg.cpp",
     "ggml/src/ggml-backend-dl.cpp",
     "ggml/src/ggml-opt.cpp",
@@ -188,6 +190,7 @@ var cSettings: [CSetting] = [
     .define("GGML_COMMIT", to: "\"3d66da180\""),
     // Header search paths so internal #includes resolve correctly
     .headerSearchPath("include"),
+    .headerSearchPath("ggml/include"),
     .headerSearchPath("ggml/src"),
     .headerSearchPath("ggml/src/ggml-cpu"),
     .headerSearchPath("src"),

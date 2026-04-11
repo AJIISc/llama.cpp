@@ -46,7 +46,30 @@
             "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/arm64-windows-llvm.cmake"
         }
     },
+    {
+        "name": "xcode",
+        "generator": "Xcode",
+        "binaryDir": "${sourceDir}/build-xcode",
+        "cacheVariables": {
+            "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+        }
+    },
 
+    {
+        "name": "xcode-debug",
+        "inherits": [ "xcode" ],
+        "cacheVariables": {
+            "CMAKE_BUILD_TYPE": "Debug"
+        }
+    },
+
+    {
+        "name": "xcode-release",
+        "inherits": [ "xcode" ],
+        "cacheVariables": {
+            "CMAKE_BUILD_TYPE": "Release"
+        }
+    },
     {
         "name": "arm64-apple-clang", "hidden": true,
         "architecture": { "value": "arm64",    "strategy": "external" },
