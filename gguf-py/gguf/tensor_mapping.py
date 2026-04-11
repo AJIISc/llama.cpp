@@ -1911,7 +1911,7 @@ class TensorNameMap:
         # this prefix is added in the conversion code in modify_tensors()
 
         MODEL_TENSOR.A_MMPROJ: (
-            "audio.multi_modal_projector.linear_{bid}", # ultravox
+            "audio.multi_modal_projector.linear_{bid}", # ultravox, meralion
             "audio_adapter.model.{bid}" # lfm2
         ),
 

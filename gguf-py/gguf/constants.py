@@ -4023,6 +4023,7 @@ class VisionProjectorType:
     GLMA = "glma" # audio
     QWEN25O = "qwen2.5o" # omni
     VOXTRAL = "voxtral"
+    MERALION = "meralion"  # audio: Whisper + gated MLP adaptor
     LFM2 = "lfm2"
     KIMIVL = "kimivl"
     PADDLEOCR = "paddleocr"
